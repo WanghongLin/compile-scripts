@@ -35,12 +35,9 @@ which 'git' &>/dev/null || {
 
 function check_busybox_source()
 {
-	[ -d busybox ] && {
-	    git pull --recurse-submodules
-		return
-	}
-	printf '\e[32mcheck busybox source from official repository\e[30m\n'
-	git submodule add 'https://git.busybox.net/busybox' busybox
+	git submodule init
+	git submodule update
+	git pull --recurse-submodules
 }
 
 check_busybox_source
@@ -61,7 +58,7 @@ function prepare_config()
 {
 	cp -vf ../$1 configs/
 	eval make $1 $VERBOSE
-	if [ "$OSTYPE" == "darwin" ];then
+	if [[ "$OSTYPE" =~ darwin.* ]];then
 		sed -i '' 's#ANDROID_NDK_ROOT#'"${ANDROID_NDK_ROOT}"'#' .config
 	else
 		sed -i 's#ANDROID_NDK_ROOT#'"${ANDROID_NDK_ROOT}"'#' .config
