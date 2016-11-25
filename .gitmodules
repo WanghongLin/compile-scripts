@@ -1,3 +1,6 @@
 [submodule "compile-busybox-android/busybox"]
 	path = compile-busybox-android/busybox
 	url = https://git.busybox.net/busybox
+[submodule "compile-x264-android/x264"]
+	path = compile-x264-android/x264
+	url = http://git.videolan.org/git/x264.git
