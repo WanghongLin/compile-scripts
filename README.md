@@ -11,3 +11,6 @@ $ cd compile-busybox-android
 $ ./build_android.sh
 # the compiled binary can be found at out/arm64-v8a and out/armeabi
 ```
+
+#### x264 for Android
+[compile-x264-android](compile-x264-android) compile script for x264 target on Android, support armeab/armeabi-v7a/arm64-v8a
