@@ -43,7 +43,27 @@ E_CFLAGS[0]="-O3"
 E_CFLAGS[1]="-O3 -march=armv7-a -mfpu=neon -mfloat-abi=softfp"
 E_CFLAGS[2]="-O3"
 
-export NCPUS=$(sysctl -n hw.ncpu)
+# determine how many task we should use when invoke build scripts
+export NCPUS
+export HOSTCC
+export PKGCONFIG
+case $OSTYPE in
+	linux*)
+		NCPUS=$(nproc --all)
+		HOSTCC=$(which gcc)
+		PKGCONFIG=$(which pkg-config)
+		;;
+	darwin*)
+		NCPUS=$(sysctl -n hw.ncpu)
+		HOSTCC="/Library/Developer/CommandLineTools/usr/bin/cc"
+		PKGCONFIG="/opt/local/bin/pkg-config"
+		;;
+	*) #FIXME bsd or other system
+		NCPUS=$(nproc --all)
+		HOSTCC=$(which gcc)
+		PKGCONFIG=$(which pkg-config)
+		;;
+esac
 VERBOSE=1
 
 if [ $VERBOSE == 1 ];
@@ -78,16 +98,18 @@ function build_one()
 		--prefix=`pwd`/out \
 		--sysroot=$_sysroot --host=$_host \
 		--extra-cflags="$_extra_flags -fPIC" --enable-pic $_disable_asm \
-		--enable-static &>/dev/null && make -j$NCPUS &>/dev/null)
+		--enable-static &>/dev/null && make -j$NCPUS &>/dev/null && make install)
 
 	rm -rf out/$_abi && make clean &>/dev/null && make distclean &>/dev/null
 	find compat -name "*.[od]" -delete
 
-	export PKG_CONFIG_PATH=/Users/wanghong/Downloads/freetype-2.6.3/out/$_abi/lib/pkgconfig:/Users/wanghong/Developments/libwebp-ndk/obj/local/$_abi:../x264/out/lib/pkgconfig
+	export PKG_CONFIG_PATH=../freetype-2.8/out/$_abi/lib/pkgconfig
+	export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:../libwebp/obj/local/$_abi
+	export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:../x264/out/lib/pkgconfig
 
 	./configure --enable-cross-compile \
-		--host-cc=/Library/Developer/CommandLineTools/usr/bin/cc \
-		--pkg-config=/opt/local/bin/pkg-config \
+		--host-cc=${HOSTCC} \
+		--pkg-config=${PKGCONFIG} \
 		--arch=$_arch \
 		--cross-prefix=$_cross_prefix \
 		--target-os=android \
@@ -131,12 +153,13 @@ function build_one()
 			sed -i ".bak" '/EXTRALIBS/{s#-L/opt/local/lib ##;}' ffbuild/config.mak
 		fi
 		make -j$NCPUS $V && make install $V
-		ANDROID_JNI_LIBS=/Users/wanghong/AndroidStudioProjects/GetRemark/ffmpeg/src/main/jniLibs/$_abi
+		ANDROID_JNI_LIBS=$HOME/AndroidStudioProjects/GetRemark/ffmpeg/src/main/jniLibs/$_abi
 		mkdir -p $ANDROID_JNI_LIBS
-		${_cross_prefix}gcc -shared -o out/$_abi/libffmpeg.so -Wl,-soname,libffmpeg.so -Wl,--whole-archive `find ../x264 out/$_abi -name "*.a" | xargs` -Wl,--no-whole-archive \
+		${_cross_prefix}gcc -shared -o out/$_abi/libffmpeg.so -Wl,-soname,libffmpeg.so -Wl,--whole-archive `find ../x264/out out/$_abi -name "*.a" | xargs` -Wl,--no-whole-archive \
 			--sysroot $_sysroot `pkg-config --libs libwebp freetype2` -lm -lz
 		${_cross_prefix}strip --strip-unneeded out/$_abi/libffmpeg.so
-		${_cross_prefix}gcc -std=c99 -o out/$_abi/libffmpege.so ffmpeg.c ffmpeg_filter.c ffmpeg_opt.c ffmpeg_hw.c cmdutils.c \
+		${_cross_prefix}gcc -std=c99 -o out/$_abi/libffmpege.so fftools/ffmpeg.c fftools/ffmpeg_filter.c \
+			fftools/ffmpeg_opt.c fftools/ffmpeg_hw.c fftools/cmdutils.c \
 			--sysroot ${_sysroot} \
 			-I`pwd` -L`pwd`/out/$_abi -lffmpeg -lm -lz -fPIE -pie
 		${_cross_prefix}strip --strip-unneeded out/$_abi/libffmpege.so
@@ -145,9 +168,9 @@ function build_one()
 		#cp -vf out/$_abi/lib/*.so $ANDROID_JNI_LIBS
 }
 
-$ANDROID_NDK_ROOT/ndk-build -C $LIB_WEBP_ROOT/jni
+#$ANDROID_NDK_ROOT/ndk-build -C $LIB_WEBP_ROOT/jni
 
-for i in `seq 2 2`
+for i in `seq 0 0`
 do
 	a=`eval echo ${ARCH_ABI[$i]}`
 	arch=`eval echo ${ARCH[$i]}`
